@@ -1,0 +1,2 @@
+# EXEPlatformID
+EXE Platform Identifier
