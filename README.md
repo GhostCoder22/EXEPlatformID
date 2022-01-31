@@ -9,5 +9,9 @@ Parts of EXEPlatformID is based on source code provided by answer on StackOverfl
 Because of this, I do own nor will I claim to own the code provided by said answer code.
 
 Currently the only build project is Code::Blocks with TDM-GCC (which is essentially MinGW32-x64)
-but this source code should compile with virtually any IDE/compiler toolset combo for Windows or
-on any Linux distro (provided you have WINE installed) with little to no effort.
+but this source code should compile with virtually any IDE/compiler toolset combo for Windows with
+little to no effort.
+
+A NOTE OF WARNING: While it might be possible for Linux users to compile this EXEPlatformID provided
+WINE is installed, I make no garentee's as to the correctiveness of OS platform reporting produced by
+this tool.
