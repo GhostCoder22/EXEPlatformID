@@ -12,6 +12,6 @@ Currently the only build project is Code::Blocks with TDM-GCC (which is essentia
 but this source code should compile with virtually any IDE/compiler toolset combo for Windows with
 little to no effort.
 
-A NOTE OF WARNING: While it might be possible for Linux users to compile this EXEPlatformID provided
-WINE is installed, I make no garentee's as to the correctiveness of OS platform reporting produced by
-this tool.
+A NOTE OF WARNING: While it might be possible for Linux users to compile EXEPlatformID provided WINE
+is installed, I make no garentee's as to the correctiveness of OS platform reporting produced by this
+tool.
