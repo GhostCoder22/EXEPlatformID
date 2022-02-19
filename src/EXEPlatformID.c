@@ -43,65 +43,63 @@ int ShowFileError(LPCSTR szFileName)
 
 BOOL EPID_ShowInfo(LPCSTR lpszFileName)
 {
-	IMAGE_MZ_HEADERS MZHeaders;
-	if (MZImageParse(&MZHeaders, lpszFileName) > 0)
-		ShowFileError(lpszFileName);
-	else
-	{
+  IMAGE_MZ_HEADERS MZHeaders;
+  if (MZImageParse(&MZHeaders, lpszFileName) > 0)
+    ShowFileError(lpszFileName);
+  else
+  {
     #define BUFFER_SIZE 500
     char buffer[BUFFER_SIZE];
-		switch (MZHeaders.Type)
-		{
-			case IMZH_DOS: StringCbPrintfA(buffer, BUFFER_SIZE, "DOS"); break;
-			case IMZH_WINDOS: StringCbPrintfA(buffer, BUFFER_SIZE, "Windows for DOS"); break;
-			case IMZH_WIN32S: StringCbPrintfA(buffer, BUFFER_SIZE, "32-bit Windows Subsystem (win32s)"); break;
-			case IMZH_NT: StringCbPrintfA(buffer, BUFFER_SIZE, "Windows NT");
-			{
-				RTL_OSVERSIONINFOW osvi;
-				char architecture[10];
-				ZeroMemory(&osvi, sizeof(RTL_OSVERSIONINFOW));
-				osvi.dwOSVersionInfoSize = sizeof(RTL_OSVERSIONINFOW);
+    switch (MZHeaders.Type)
+    {
+      case IMZH_DOS: StringCbPrintfA(buffer, BUFFER_SIZE, "DOS"); break;
+      case IMZH_WINDOS: StringCbPrintfA(buffer, BUFFER_SIZE, "Windows for DOS"); break;
+      case IMZH_WIN32S: StringCbPrintfA(buffer, BUFFER_SIZE, "32-bit Windows Subsystem (win32s)"); break;
+      case IMZH_NT: StringCbPrintfA(buffer, BUFFER_SIZE, "Windows NT");
+      {
+        RTL_OSVERSIONINFOW osvi;
+        char architecture[10];
+        ZeroMemory(&osvi, sizeof(RTL_OSVERSIONINFOW));
+        osvi.dwOSVersionInfoSize = sizeof(RTL_OSVERSIONINFOW);
 				RtlGetVersion(&osvi);
-			  switch (MZHeaders.NTHeaders.FileHeader.Machine)
-				{
-			  	case IMAGE_FILE_MACHINE_I386:  StringCbPrintfA(architecture, 10, "i386"); break;
-			  	case IMAGE_FILE_MACHINE_IA64:  StringCbPrintfA(architecture, 10, "IA64"); break;
-			  	case IMAGE_FILE_MACHINE_AMD64: StringCbPrintfA(architecture, 10, "AMD64"); break;
+        switch (MZHeaders.NTHeaders.FileHeader.Machine)
+        {
+          case IMAGE_FILE_MACHINE_I386:  StringCbPrintfA(architecture, 10, "i386"); break;
+          case IMAGE_FILE_MACHINE_IA64:  StringCbPrintfA(architecture, 10, "IA64"); break;
+          case IMAGE_FILE_MACHINE_AMD64: StringCbPrintfA(architecture, 10, "AMD64"); break;
 				}
-				StringCbPrintfA(buffer, BUFFER_SIZE,
-												"Windows %d.%d.%d\nMinimum OS Required: %d.%d (%d-bit)\nCPU Architecture: %s",
-												osvi.dwMajorVersion, osvi.dwMinorVersion, osvi.dwBuildNumber,
-												MZHeaders.NTHeaders.OptionalHeader.MajorOperatingSystemVersion,
-												MZHeaders.NTHeaders.OptionalHeader.MinorOperatingSystemVersion,
-												MZHeaders.BitLevel, architecture);
-			}
-			break;
-			case IMZH_NE: StringCbPrintfA(buffer, BUFFER_SIZE, "<unidentified NE signature>"); break;
-			case IMZH_OS2: StringCbPrintfA(buffer, BUFFER_SIZE, "OS/2"); break;
-			case IMZH_OS2_LE: StringCbPrintfA(buffer, BUFFER_SIZE, "OS/2 LE"); break;
-			case IMZH_DOS4: StringCbPrintfA(buffer, BUFFER_SIZE, "European DOS 4.x"); break;
-			case IMZH_BOSS: StringCbPrintfA(buffer, BUFFER_SIZE, "Borland Operating System Services (BOSS)"); break;
-			case IMZH_UNKNOWN: StringCbPrintfA(buffer, BUFFER_SIZE, "Unknown"); break;
-			case IMZH_ERROR: StringCbPrintfA(buffer, BUFFER_SIZE, "<Error>");
-		}
-	  if (MZHeaders.Type != IMZH_ERROR)
-		{
-			if (MZHeaders.Type == IMZH_UNKNOWN)
-				FormatMessageBoxA(NULL, "EXE Platform Identifier", MB_OK,
-													"EXE File: %s\nPlatform ID: <unknown>", lpszFileName);
-			else
-				FormatMessageBoxA(NULL, "EXE Platform Identifier", MB_OK,
-													"EXE File: %s\nPlatform ID: %s (%d-bit)", lpszFileName, buffer, MZHeaders.BitLevel);
-		}
-		return TRUE;
-	}
-	return FALSE;
+        StringCbPrintfA(buffer, BUFFER_SIZE,
+                        "Windows %d.%d.%d\nMinimum OS Required: %d.%d (%d-bit)\nCPU Architecture: %s",
+                        osvi.dwMajorVersion, osvi.dwMinorVersion, osvi.dwBuildNumber,
+								        MZHeaders.NTHeaders.OptionalHeader.MajorOperatingSystemVersion,
+                        MZHeaders.NTHeaders.OptionalHeader.MinorOperatingSystemVersion,
+								        MZHeaders.BitLevel, architecture);
+     }
+     break;
+     case IMZH_NE: StringCbPrintfA(buffer, BUFFER_SIZE, "<unidentified NE signature>"); break;
+     case IMZH_OS2: StringCbPrintfA(buffer, BUFFER_SIZE, "OS/2"); break;
+     case IMZH_OS2_LE: StringCbPrintfA(buffer, BUFFER_SIZE, "OS/2 LE"); break;
+     case IMZH_DOS4: StringCbPrintfA(buffer, BUFFER_SIZE, "European DOS 4.x"); break;
+     case IMZH_BOSS: StringCbPrintfA(buffer, BUFFER_SIZE, "Borland Operating System Services (BOSS)"); break;
+     case IMZH_UNKNOWN: StringCbPrintfA(buffer, BUFFER_SIZE, "Unknown"); break;
+     case IMZH_ERROR: StringCbPrintfA(buffer, BUFFER_SIZE, "<Error>");
+   }
+   if (MZHeaders.Type != IMZH_ERROR)
+   {
+     if (MZHeaders.Type == IMZH_UNKNOWN)
+       FormatMessageBoxA(NULL, "EXE Platform Identifier", MB_OK, "EXE File: %s\nPlatform ID: <unknown>", lpszFileName);
+     else
+       FormatMessageBoxA(NULL, "EXE Platform Identifier", MB_OK, "EXE File: %s\nPlatform ID: %s (%d-bit)", lpszFileName, buffer, MZHeaders.BitLevel);
+   }
+   return TRUE;
+ }
+ return FALSE;
 }
 
 BOOL EPID_BrowseFiles(HWND hWnd)
 {
   OPENFILENAMEA ofn;
-  char		      szFileName[MAX_PATH];
+  char          szFileName[MAX_PATH];
 
   ZeroMemory(&ofn, sizeof(ofn));
   szFileName[0] = 0;
