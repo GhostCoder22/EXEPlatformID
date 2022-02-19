@@ -1,180 +1,126 @@
 #include <windows.h>
 #include <strsafe.h>
 
-#include <stdio.h>
 #include <stdarg.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <string.h>
 
 #include "EXEPlatformID.h"
+#include "MZImageParse/MZImageParse.h"
 
-int FormatMessageBoxW(HWND hWnd, LPCWSTR lpszCaption, UINT uType, LPCWSTR lpszMessage, ...)
+NTSYSAPI NTSTATUS NTAPI RtlGetVersion(IN OUT PRTL_OSVERSIONINFOW lpVersionInformation);
+
+int FormatMessageBoxA(HWND hWnd, LPCSTR lpszCaption, UINT uType, LPCSTR lpszMessage, ...)
 {
-  int      result = 0;
-  wchar_t  buffer[255];
-  va_list  args;
+  int     result = 0;
+  char	  buffer[255];
+  va_list args;
 
   va_start(args, lpszMessage);
-  if ((result = StringCbVPrintfW(buffer, 255, lpszMessage, args) != S_OK))
-  { va_end(args); result = -1; }
-  else
-  {
-    result = MessageBoxW(hWnd, buffer, lpszCaption, uType);
-    va_end(args);
-  }
-  return result;
+  result = StringCbVPrintfA(buffer, 255, lpszMessage, args);
+  va_end(args);
+  if (result == S_OK)
+    return MessageBoxA(hWnd, buffer, lpszCaption, uType);
+  SetLastError(ERROR_INVALID_PARAMETER);
+  return ERROR_INVALID_PARAMETER;
 }
 
-int ShowFileError(LPCWSTR szFileName)
+int ShowFileError(LPCSTR szFileName)
 {
   DWORD   nErrorCode = GetLastError();
   LPWSTR szError     = NULL;
 
-  FormatMessageW(FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+  FormatMessageA(FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
                  NULL, nErrorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                (LPWSTR) &szError, 0, NULL);
-  FormatMessageBoxW(NULL, L"EXE Platform Identifier", MB_OK | MB_ICONEXCLAMATION,
-                   L"Error on file: %s\nCause: %s (%d)", szFileName, szError, nErrorCode);
+                (LPSTR) &szError, 0, NULL);
+  FormatMessageBoxA(NULL, "EXE Platform Identifier", MB_OK | MB_ICONEXCLAMATION,
+                   "Error on file: %s\nCause: %s (%d)", szFileName, szError, nErrorCode);
   LocalFree(szError);
   return 0;
 }
 
-BOOL DoShowEXEPlatformID(HWND hWnd, LPCWSTR lpszFileName)
+
+BOOL EPID_ShowInfo(LPCSTR lpszFileName)
 {
-  BOOL result = FALSE;
-
-  HANDLE hFile = CreateFileW(lpszFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
-  if (hFile == INVALID_HANDLE_VALUE)
-		goto showError;
+	IMAGE_MZ_HEADERS MZHeaders;
+	if (MZImageParse(&MZHeaders, lpszFileName) > 0)
+		ShowFileError(lpszFileName);
 	else
 	{
-		HANDLE hFileMapping = CreateFileMappingW(hFile, NULL, PAGE_READONLY, 0, 0, NULL);
-		if (hFileMapping == 0)
+    #define BUFFER_SIZE 500
+    char buffer[BUFFER_SIZE];
+		switch (MZHeaders.Type)
 		{
-			CloseHandle(hFile);
-			goto showError;
-		}
-		else
-		{
-			LPVOID lpFileBase = MapViewOfFile(hFileMapping, FILE_MAP_READ, 0, 0, 0);
-			if (lpFileBase == NULL)
+			case IMZH_DOS: StringCbPrintfA(buffer, BUFFER_SIZE, "DOS"); break;
+			case IMZH_WINDOS: StringCbPrintfA(buffer, BUFFER_SIZE, "Windows for DOS"); break;
+			case IMZH_WIN32S: StringCbPrintfA(buffer, BUFFER_SIZE, "32-bit Windows Subsystem (win32s)"); break;
+			case IMZH_NT: StringCbPrintfA(buffer, BUFFER_SIZE, "Windows NT");
 			{
-				CloseHandle(hFileMapping); CloseHandle(hFile);
-				goto showError;
-			}
-		  else
-			{
-			  #define BUFFER_SIZE 500
-			  PIMAGE_DOS_HEADER dosHeader = (PIMAGE_DOS_HEADER) lpFileBase;
-				if (dosHeader->e_magic == IMAGE_DOS_SIGNATURE)
-			  {
-			  	PIMAGE_NT_HEADERS  peHeader = (PIMAGE_NT_HEADERS) ((UCHAR*) dosHeader + dosHeader->e_lfanew);
-			  	if (peHeader->Signature == IMAGE_NT_SIGNATURE)
-					{
-						wchar_t buffer[BUFFER_SIZE];
-			  		switch (peHeader->FileHeader.Machine)
-			  		{
-			  			case IMAGE_FILE_MACHINE_I386:  StringCbPrintfW(buffer, BUFFER_SIZE, L"Windows 32-bit"); break;
-			  			case IMAGE_FILE_MACHINE_IA64:  StringCbPrintfW(buffer, BUFFER_SIZE, L"Windows Intel Itanium"); break;
-			  			case IMAGE_FILE_MACHINE_AMD64: StringCbPrintfW(buffer, BUFFER_SIZE, L"Windows 64-bit"); break;
-			  			default:
-								StringCbPrintfW(buffer, BUFFER_SIZE, L"Unknown");
-			  		}
-			  		if (peHeader->FileHeader.Machine != IMAGE_FILE_MACHINE_UNKNOWN)
-         		  FormatMessageBoxW(hWnd, L"EXE Platform Identifier", MB_OK,
-					        							L"EXE File: %s\nPlatform ID: %s\nMinimum required OS version: %d.%d",
-					        							lpszFileName, buffer,
-  															peHeader->OptionalHeader.MajorOperatingSystemVersion,
-	  														peHeader->OptionalHeader.MinorOperatingSystemVersion);
-					}
-					else
-     		  FormatMessageBoxW(hWnd, L"EXE Platform Identifier", MB_OK,
-					     							L"EXE File: %s\nPlatform ID: DOS", lpszFileName);
-			  }
-
-       /*
-        LPCWSTR platformID;
-				switch (dosHeader->e_magic)
+				RTL_OSVERSIONINFOW osvi;
+				char architecture[10];
+				ZeroMemory(&osvi, sizeof(RTL_OSVERSIONINFOW));
+				osvi.dwOSVersionInfoSize = sizeof(RTL_OSVERSIONINFOW);
+				RtlGetVersion(&osvi);
+			  switch (MZHeaders.NTHeaders.FileHeader.Machine)
 				{
-					case IMAGE_DOS_SIGNATURE:    platformID = L"DOS"; break;
-					case IMAGE_NT_SIGNATURE:     platformID = L"Windows NT"; break;
-				  case IMAGE_OS2_SIGNATURE:    platformID = L"OS/2 Warp"; break;
-				  case IMAGE_OS2_SIGNATURE_LE: platformID = L"OS/2 Warp (Little Endian)"; break;
-				  default:
-						platformID = L"Unknown"; break;
+			  	case IMAGE_FILE_MACHINE_I386:  StringCbPrintfA(architecture, 10, "i386"); break;
+			  	case IMAGE_FILE_MACHINE_IA64:  StringCbPrintfA(architecture, 10, "IA64"); break;
+			  	case IMAGE_FILE_MACHINE_AMD64: StringCbPrintfA(architecture, 10, "AMD64"); break;
 				}
-				FormatMessageBoxW(hWnd, L"EXE Platform Identifier", MB_OK,
-													L"EXE File: %s\nPlatform ID: %s", lpszFileName, platformID); */
-				UnmapViewOfFile(lpFileBase);
-        CloseHandle(hFileMapping);
-        CloseHandle(hFile);
-				return TRUE;
+				StringCbPrintfA(buffer, BUFFER_SIZE,
+												"Windows %d.%d.%d\nMinimum OS Required: %d.%d (%d-bit)\nCPU Architecture: %s",
+												osvi.dwMajorVersion, osvi.dwMinorVersion, osvi.dwBuildNumber,
+												MZHeaders.NTHeaders.OptionalHeader.MajorOperatingSystemVersion,
+												MZHeaders.NTHeaders.OptionalHeader.MinorOperatingSystemVersion,
+												MZHeaders.BitLevel, architecture);
 			}
+			break;
+			case IMZH_NE: StringCbPrintfA(buffer, BUFFER_SIZE, "<unidentified NE signature>"); break;
+			case IMZH_OS2: StringCbPrintfA(buffer, BUFFER_SIZE, "OS/2"); break;
+			case IMZH_OS2_LE: StringCbPrintfA(buffer, BUFFER_SIZE, "OS/2 LE"); break;
+			case IMZH_DOS4: StringCbPrintfA(buffer, BUFFER_SIZE, "European DOS 4.x"); break;
+			case IMZH_BOSS: StringCbPrintfA(buffer, BUFFER_SIZE, "Borland Operating System Services (BOSS)"); break;
+			case IMZH_UNKNOWN: StringCbPrintfA(buffer, BUFFER_SIZE, "Unknown"); break;
+			case IMZH_ERROR: StringCbPrintfA(buffer, BUFFER_SIZE, "<Error>");
 		}
-	}
-
-  showError:
-	{
-		ShowFileError(lpszFileName);
-		return GetLastError();
-	}
-
- /*
-  DWORD dwfvHandle   = 0;
-  DWORD dwfvInfoSize = GetFileVersionInfoSizeW(lpszFileName, &dwfvHandle);
-  VS_FIXEDFILEINFO vsFileInfo;
-  wchar_t fviBuffer[dwfvInfoSize];
-  UINT fviDataSize = 0;
-
-  if ((dwfvInfoSize == 0) ||
-			(!GetFileVersionInfoW(lpszFileName, dwfvHandle, dwfvInfoSize, fviBuffer)) ||
-			(!VerQueryValueW(&fviBuffer, L"\\", (LPVOID) &vsFileInfo, &fviDataSize)))
-		ShowFileError(lpszFileName);
-	else
-	{
-		wchar_t buffer[255];
-		switch (vsFileInfo.dwFileOS)
+	  if (MZHeaders.Type != IMZH_ERROR)
 		{
-			case VOS_NT: StringCbPrintfW(buffer, 255, L"Windows NT"); break;
-			case VOS_NT_WINDOWS32: StringCbPrintfW(buffer, 255, L"Windows NT 32-bit"); break;
-			case VOS_DOS: StringCbPrintfW(buffer, 255, L"DOS"); break;
-			case VOS_DOS_WINDOWS16: StringCbPrintfW(buffer, 255, L"Windows 3.11 or lower"); break;
-			case VOS_DOS_WINDOWS32: StringCbPrintfW(buffer, 255, L"Windows 32-bit for DOS"); break;
-			case VOS_OS216: StringCbPrintfW(buffer, 255, L"OS/2 Warp 16-bit"); break;
-		//	case VOS_OS216_PM16: StringCbPrintfW(buffer, 255, L"OS/2 Warp 16-bit Presentation Manager"); break;
-			case VOS_OS232: StringCbPrintfW(buffer, 255, L"OS/2 Warp 32-bit"); break;
-		//	case VOS_OS216_PM32: StringCbPrintfW(buffer, 255, L"OS/2 Warp 32-bit Presentation Manager"); break;
-			case VOS_UNKNOWN: StringCbPrintfW(buffer, 255, L"Unknown");
+			if (MZHeaders.Type == IMZH_UNKNOWN)
+				FormatMessageBoxA(NULL, "EXE Platform Identifier", MB_OK,
+													"EXE File: %s\nPlatform ID: <unknown>", lpszFileName);
+			else
+				FormatMessageBoxA(NULL, "EXE Platform Identifier", MB_OK,
+													"EXE File: %s\nPlatform ID: %s (%d-bit)", lpszFileName, buffer, MZHeaders.BitLevel);
 		}
-		FormatMessageBoxW(hWnd, L"EXE Platform Identification", MB_OK, L"EXE File Name: %s\nOS: %s", lpszFileName, buffer);
-		result = TRUE;
+		return TRUE;
 	}
- */
-	return result;
+	return FALSE;
 }
 
-
-BOOL DoBrowseFiles(HWND hWnd)
+BOOL EPID_BrowseFiles(HWND hWnd)
 {
-  OPENFILENAMEW ofn;
-  wchar_t       szFileName[MAX_PATH];
+  OPENFILENAMEA ofn;
+  char		      szFileName[MAX_PATH];
 
   ZeroMemory(&ofn, sizeof(ofn));
   szFileName[0] = 0;
 
   ofn.lStructSize = sizeof(ofn);
   ofn.hwndOwner   = hWnd;
-  ofn.lpstrTitle  = L"Browse for EXE";
-  ofn.lpstrFilter = L"EXE Files (*.exe)\0*.exe\0All Files (*.*)\0*.*\0\0";
-  ofn.lpstrDefExt = L"exe";
+  ofn.lpstrTitle  = "Browse for EXE";
+  ofn.lpstrFilter = "EXE Files (*.exe)\0*.exe\0All Files (*.*)\0*.*\0\0";
+  ofn.lpstrDefExt = "exe";
   ofn.nMaxFile    = MAX_PATH;
   ofn.lpstrFile   = szFileName;
   ofn.Flags       = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
 
-  if (GetOpenFileName(&ofn))
-    DoShowEXEPlatformID(hWnd, ofn.lpstrFile);
+  if (GetOpenFileNameA(&ofn))
+    EPID_ShowInfo(ofn.lpstrFile);
   return TRUE;
 }
 
-INT_PTR CALLBACK DlgProc_EXEPFID(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lParam)
+INT_PTR CALLBACK EPID_DialogProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
   switch (message)
   {
@@ -184,7 +130,7 @@ INT_PTR CALLBACK DlgProc_EXEPFID(HWND hwndDlg, UINT message, WPARAM wParam, LPAR
       switch (LOWORD(wParam))
       {
         case IDBROWSE:
-          return DoBrowseFiles(hwndDlg);
+          return EPID_BrowseFiles(hwndDlg);
         case IDCANCEL:
           return EndDialog(hwndDlg, IDCANCEL);
       }
@@ -197,6 +143,6 @@ INT_PTR CALLBACK DlgProc_EXEPFID(HWND hwndDlg, UINT message, WPARAM wParam, LPAR
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nCmdShow)
 {
-  DialogBox(hInstance, MAKEINTRESOURCE(IDD_EXEPFID), NULL, DlgProc_EXEPFID);
+  DialogBoxA(hInstance, MAKEINTRESOURCEA(IDD_EPID), NULL, EPID_DialogProc);
   return 0;
 }

@@ -25,6 +25,7 @@
 		</Compiler>
 		<Linker>
 			<Add library="libversion.a" />
+			<Add library="libntoskrnl.a" />
 		</Linker>
 		<Unit filename="src/EXEPlatformID.c">
 			<Option compilerVar="CC" />
@@ -33,6 +34,10 @@
 		<Unit filename="src/EXEPlatformID.rc">
 			<Option compilerVar="WINDRES" />
 		</Unit>
+		<Unit filename="src/MZImageParse/MZImageParse.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/MZImageParse/MZImageParse.h" />
 		<Extensions>
 			<lib_finder disable_auto="1" />
 		</Extensions>
