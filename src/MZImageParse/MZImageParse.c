@@ -16,8 +16,7 @@ are present, then DOS 16-bit is assumed.
 
 /*
 While the following disabled functional code is incomplete, I'm purposely leaving it here as a reference to
-show how to properly parse executable/DLL file headers using the CRT functions "fopen", "fclose", "fseek" and
-"memcpy".
+show how to properly parse executable/DLL file headers using the CRT functions "fopen" and"fseek".
 
 DWORD MZImageParse(PIMAGE_EXE_HEADERS pHeaders, LPCSTR lpszFilename)
 {
