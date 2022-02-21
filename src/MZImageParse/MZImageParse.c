@@ -81,13 +81,16 @@ DWORD MZImageParse(PIMAGE_MZ_HEADERS pHeaders, LPCSTR lpszFilename)
     if (FileHandle != NULL)
     {
       HANDLE FileMapping = CreateFileMappingA(FileHandle, NULL, PAGE_READONLY, 0, 0, NULL);
-      if (FileMapping == NULL)
+      if (FileMapping == INVALID_HANDLE_VALUE)
         CloseHandle(FileHandle);
       else
       {
         LPVOID FileBase = MapViewOfFile(FileMapping, FILE_MAP_READ, 0, 0, 0);
         if (FileBase == NULL)
-         { CloseHandle(FileMapping); CloseHandle(FileHandle); }
+        {
+          CloseHandle(FileMapping);
+          CloseHandle(FileHandle);
+        }
         else
         {
           PIMAGE_DOS_HEADER DOSStub = (PIMAGE_DOS_HEADER) FileBase;
@@ -144,3 +147,49 @@ DWORD MZImageParse(PIMAGE_MZ_HEADERS pHeaders, LPCSTR lpszFilename)
   return GetLastError();
 }
 
+HRESULT NTHeaderVersionToString(PIMAGE_NT_HEADERS NTHeaders, STRSAFE_LPSTR StringBuffer, size_t BufferSize)
+{
+  if ((NTHeaders != NULL) && (StringBuffer != NULL))
+  {
+    if (BufferSize == 0)
+      return STRSAFE_E_INSUFFICIENT_BUFFER;
+    else
+    {
+      LPCSTR WindowsPID;
+      switch (NTHeaders->OptionalHeader.MajorOperatingSystemVersion)
+      {
+        case 4:
+          switch (NTHeaders->OptionalHeader.MinorOperatingSystemVersion)
+          {
+            case 0: WindowsPID = "95"; break;
+            case 10: WindowsPID = "98"; break;
+            case 90: WindowsPID = "Me"; break;
+          }
+        break;
+        case 5:
+          switch (NTHeaders->OptionalHeader.MinorOperatingSystemVersion)
+          {
+            case 1: WindowsPID = "XP"; break;
+            case 2: WindowsPID = "XP Professional"; break;
+          }
+        break;
+        case 6:
+          switch (NTHeaders->OptionalHeader.MinorOperatingSystemVersion)
+          {
+            case 0: WindowsPID = "Vista"; break;
+            case 1: WindowsPID = "7"; break;
+            case 2: WindowsPID = "8"; break;
+            case 3: WindowsPID = "8.1"; break;
+          }
+        break;
+        case 10: WindowsPID = "10/11"; break;
+      }
+      SetLastError(0);
+      return StringCbPrintfA(StringBuffer, BufferSize, "Windows %s [Version %d.%d]", WindowsPID,
+                             NTHeaders->OptionalHeader.MajorOperatingSystemVersion,
+                             NTHeaders->OptionalHeader.MinorOperatingSystemVersion);
+    }
+  }
+  SetLastError(ERROR_INVALID_PARAMETER);
+  return STRSAFE_E_INVALID_PARAMETER;
+}

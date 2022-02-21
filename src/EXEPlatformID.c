@@ -55,10 +55,10 @@ BOOL EPID_ShowInfo(LPCSTR lpszFileName)
       case IMZH_DOS: StringCbPrintfA(buffer, BUFFER_SIZE, "DOS"); break;
       case IMZH_WINDOS: StringCbPrintfA(buffer, BUFFER_SIZE, "Windows for DOS"); break;
       case IMZH_WIN32S: StringCbPrintfA(buffer, BUFFER_SIZE, "32-bit Windows Subsystem (win32s)"); break;
-      case IMZH_NT: StringCbPrintfA(buffer, BUFFER_SIZE, "Windows NT");
+      case IMZH_NT:
       {
         RTL_OSVERSIONINFOW osvi;
-        char architecture[10];
+        char architecture[10], version[50];
         ZeroMemory(&osvi, sizeof(RTL_OSVERSIONINFOW));
         osvi.dwOSVersionInfoSize = sizeof(RTL_OSVERSIONINFOW);
 				RtlGetVersion(&osvi);
@@ -68,12 +68,11 @@ BOOL EPID_ShowInfo(LPCSTR lpszFileName)
           case IMAGE_FILE_MACHINE_IA64:  StringCbPrintfA(architecture, 10, "IA64"); break;
           case IMAGE_FILE_MACHINE_AMD64: StringCbPrintfA(architecture, 10, "AMD64"); break;
 				}
+        NTHeaderVersionToString(&MZHeaders.NTHeaders, version, BUFFER_SIZE);
         StringCbPrintfA(buffer, BUFFER_SIZE,
-                        "Windows %d.%d.%d\nMinimum OS Required: %d.%d (%d-bit)\nCPU Architecture: %s",
-                        osvi.dwMajorVersion, osvi.dwMinorVersion, osvi.dwBuildNumber,
-								        MZHeaders.NTHeaders.OptionalHeader.MajorOperatingSystemVersion,
-                        MZHeaders.NTHeaders.OptionalHeader.MinorOperatingSystemVersion,
-								        MZHeaders.BitLevel, architecture);
+                        "Windows %d.%d.%d\nMinimum OS Required: %s (%d-bit)\nCPU Architecture: %s",
+                        osvi.dwMajorVersion, osvi.dwMinorVersion, osvi.dwBuildNumber, version,
+                        MZHeaders.BitLevel, architecture);
      }
      break;
      case IMZH_NE: StringCbPrintfA(buffer, BUFFER_SIZE, "<unidentified NE signature>"); break;

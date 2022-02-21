@@ -3,6 +3,7 @@
 
  #ifndef RC_INVOKED
   #include <windows.h>
+  #include <strsafe.h>
 
   typedef enum _IMAGE_MZ_HEADERS_TYPE
   {   IMZH_UNKNOWN = 0x0000,
@@ -32,6 +33,7 @@
   } IMAGE_MZ_HEADERS,*PIMAGE_MZ_HEADERS;
 
   DWORD MZImageParse(PIMAGE_MZ_HEADERS pHeaders, LPCSTR lpszFilename);
+  HRESULT NTHeaderVersionToString(PIMAGE_NT_HEADERS NTHeaders, STRSAFE_LPSTR StringBuffer, size_t BufferSize);
  #endif // RC_INVOKED
 
 #endif // IMAGE_MZ_PARSE_H
